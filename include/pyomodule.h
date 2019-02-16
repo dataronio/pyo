@@ -21,7 +21,7 @@
 #include "Python.h"
 #include <math.h>
 
-#define PYO_VERSION "0.9.1"
+#define PYO_VERSION "0.9.2"
 
 #ifndef __MYFLT_DEF
 #define __MYFLT_DEF
@@ -461,6 +461,7 @@ extern PyTypeObject Delay1Type;
 extern PyTypeObject RCOscType;
 extern PyTypeObject YinType;
 extern PyTypeObject SVFType;
+extern PyTypeObject SVF2Type;
 extern PyTypeObject AverageType;
 extern PyTypeObject CvlVerbType;
 extern PyTypeObject SpectrumType;
@@ -528,6 +529,8 @@ extern PyTypeObject RMSType;
 extern PyTypeObject MidiLinsegType;
 extern PyTypeObject MultiBandMainType;
 extern PyTypeObject MultiBandType;
+extern PyTypeObject M_DivType;
+extern PyTypeObject M_SubType;
 
 /* Constants */
 #define E M_E
@@ -1451,6 +1454,10 @@ extern PyTypeObject MultiBandType;
     } \
     else { \
         self->mul = tmp; \
+        if (! PyObject_HasAttrString((PyObject *)self->mul, "_getStream")) { \
+            PyErr_SetString(PyExc_ArithmeticError, "Only number or audio internal object can be used in arithmetic with audio internal objects.\n"); \
+            PyErr_Print(); \
+        } \
         streamtmp = PyObject_CallMethod((PyObject *)self->mul, "_getStream", NULL); \
         Py_INCREF(streamtmp); \
         Py_XDECREF(self->mul_stream); \
@@ -1482,6 +1489,10 @@ extern PyTypeObject MultiBandType;
     } \
     else { \
         self->add = tmp; \
+        if (! PyObject_HasAttrString((PyObject *)self->add, "_getStream")) { \
+            PyErr_SetString(PyExc_ArithmeticError, "Only number or audio internal object can be used in arithmetic with audio internal objects.\n"); \
+            PyErr_Print(); \
+        } \
         streamtmp = PyObject_CallMethod((PyObject *)self->add, "_getStream", NULL); \
         Py_INCREF(streamtmp); \
         Py_XDECREF(self->add_stream); \
@@ -1513,6 +1524,10 @@ extern PyTypeObject MultiBandType;
     } \
     else { \
         self->add = tmp; \
+        if (! PyObject_HasAttrString((PyObject *)self->add, "_getStream")) { \
+            PyErr_SetString(PyExc_ArithmeticError, "Only number or audio internal object can be used in arithmetic with audio internal objects.\n"); \
+            PyErr_Print(); \
+        } \
         streamtmp = PyObject_CallMethod((PyObject *)self->add, "_getStream", NULL); \
         Py_INCREF(streamtmp); \
         Py_XDECREF(self->add_stream); \
@@ -1547,6 +1562,10 @@ extern PyTypeObject MultiBandType;
     else { \
         Py_DECREF(self->mul); \
         self->mul = tmp; \
+        if (! PyObject_HasAttrString((PyObject *)self->mul, "_getStream")) { \
+            PyErr_SetString(PyExc_ArithmeticError, "Only number or audio internal object can be used in arithmetic with audio internal objects.\n"); \
+            PyErr_Print(); \
+        } \
         streamtmp = PyObject_CallMethod((PyObject *)self->mul, "_getStream", NULL); \
         Py_INCREF(streamtmp); \
         Py_XDECREF(self->mul_stream); \
@@ -1702,12 +1721,26 @@ extern PyTypeObject MultiBandType;
     return (PyObject *)self;
 
 #define STOP \
-    int i; \
-    Stream_setStreamActive(self->stream, 0); \
-    Stream_setStreamChnl(self->stream, 0); \
-    Stream_setStreamToDac(self->stream, 0); \
-    for (i=0; i<self->bufsize; i++) { \
-        self->data[i] = 0; \
+    int i, nearestBuf = 0; \
+    float wait = 0.0; \
+ \
+    static char *kwlist[] = {"wait", NULL}; \
+ \
+    if (! PyArg_ParseTupleAndKeywords(args, kwds, "|f", kwlist, &wait)) \
+        return PyInt_FromLong(-1); \
+ \
+    if (wait == 0) { \
+        Stream_setStreamActive(self->stream, 0); \
+        Stream_setStreamChnl(self->stream, 0); \
+        Stream_setStreamToDac(self->stream, 0); \
+        for (i=0; i<self->bufsize; i++) { \
+            self->data[i] = 0; \
+        } \
+    } \
+    else { \
+        Stream_resetBufferCount(self->stream); \
+        nearestBuf = (int)roundf((wait * self->sr) / self->bufsize + 0.5); \
+        Stream_setDuration(self->stream, nearestBuf); \
     } \
     Py_INCREF(Py_None); \
     return Py_None;

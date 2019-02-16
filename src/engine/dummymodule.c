@@ -78,9 +78,16 @@ static void
 Dummy_compute_next_data_frame(Dummy *self)
 {
     int i;
-    MYFLT *in = Stream_getData((Stream *)self->input_stream);
-    for (i=0; i<self->bufsize; i++) {
-        self->data[i] = in[i];
+    if (self->modebuffer[2] == 0) {
+        MYFLT inval = PyFloat_AS_DOUBLE(self->input);
+        for (i=0; i<self->bufsize; i++) {
+            self->data[i] = inval;
+        }
+    } else {
+        MYFLT *in = Stream_getData((Stream *)self->input_stream);
+        for (i=0; i<self->bufsize; i++) {
+            self->data[i] = in[i];
+        }
     }
     (*self->muladd_func_ptr)(self);
 }
@@ -115,8 +122,9 @@ PyObject *
 Dummy_initialize(Dummy *self)
 {
     int i;
-	self->modebuffer[0] = 0;
-	self->modebuffer[1] = 0;
+    self->modebuffer[0] = 0;
+    self->modebuffer[1] = 0;
+    self->modebuffer[2] = 0;
 
     INIT_OBJECT_COMMON
     Stream_setFunctionPtr(self->stream, Dummy_compute_next_data_frame);
@@ -135,14 +143,25 @@ Dummy_setInput(Dummy *self, PyObject *arg)
 {
     PyObject *tmp, *streamtmp;
 
+    ASSERT_ARG_NOT_NULL
+
+    int isNumber = PyNumber_Check(arg);
+
     tmp = arg;
     Py_INCREF(tmp);
     Py_XDECREF(self->input);
-    self->input = tmp;
-    streamtmp = PyObject_CallMethod((PyObject *)self->input, "_getStream", NULL);
-    Py_INCREF(streamtmp);
-    Py_XDECREF(self->input_stream);
-    self->input_stream = (Stream *)streamtmp;
+
+    if (isNumber == 1) {
+        self->input = PyNumber_Float(tmp);
+        self->modebuffer[2] = 0;
+    } else {
+        self->input = tmp;
+        streamtmp = PyObject_CallMethod((PyObject *)self->input, "_getStream", NULL);
+        Py_INCREF(streamtmp);
+        Py_XDECREF(self->input_stream);
+        self->input_stream = (Stream *)streamtmp;
+        self->modebuffer[2] = 1;
+    }
 
     (*self->mode_func_ptr)(self);
 
@@ -161,7 +180,7 @@ static PyObject * Dummy_setDiv(Dummy *self, PyObject *arg) { SET_DIV };
 
 static PyObject * Dummy_play(Dummy *self, PyObject *args, PyObject *kwds) { PLAY };
 static PyObject * Dummy_out(Dummy *self, PyObject *args, PyObject *kwds) { OUT };
-static PyObject * Dummy_stop(Dummy *self) { STOP };
+static PyObject * Dummy_stop(Dummy *self, PyObject *args, PyObject *kwds) { STOP };
 
 static PyObject * Dummy_multiply(Dummy *self, PyObject *arg) { MULTIPLY };
 static PyObject * Dummy_inplace_multiply(Dummy *self, PyObject *arg) { INPLACE_MULTIPLY };
@@ -186,7 +205,7 @@ static PyMethodDef Dummy_methods[] = {
     {"_getStream", (PyCFunction)Dummy_getStream, METH_NOARGS, "Returns stream object."},
     {"play", (PyCFunction)Dummy_play, METH_VARARGS|METH_KEYWORDS, "Starts computing without sending sound to soundcard."},
     {"out", (PyCFunction)Dummy_out, METH_VARARGS|METH_KEYWORDS, "Starts computing and sends sound to soundcard channel speficied by argument."},
-    {"stop", (PyCFunction)Dummy_stop, METH_NOARGS, "Stops computing."},
+    {"stop", (PyCFunction)Dummy_stop, METH_VARARGS|METH_KEYWORDS, "Stops computing."},
 	{"setInput", (PyCFunction)Dummy_setInput, METH_O, "Sets the input sound object."},
 	{"setMul", (PyCFunction)Dummy_setMul, METH_O, "Sets mul factor."},
 	{"setAdd", (PyCFunction)Dummy_setAdd, METH_O, "Sets add factor."},
@@ -408,7 +427,7 @@ static PyObject * TriggerDummy_setSub(TriggerDummy *self, PyObject *arg) { SET_S
 static PyObject * TriggerDummy_setDiv(TriggerDummy *self, PyObject *arg) { SET_DIV };
 
 static PyObject * TriggerDummy_play(TriggerDummy *self, PyObject *args, PyObject *kwds) { PLAY };
-static PyObject * TriggerDummy_stop(TriggerDummy *self) { STOP };
+static PyObject * TriggerDummy_stop(TriggerDummy *self, PyObject *args, PyObject *kwds) { STOP };
 
 static PyObject * TriggerDummy_multiply(TriggerDummy *self, PyObject *arg) { MULTIPLY };
 static PyObject * TriggerDummy_inplace_multiply(TriggerDummy *self, PyObject *arg) { INPLACE_MULTIPLY };
@@ -431,7 +450,7 @@ static PyMethodDef TriggerDummy_methods[] = {
     {"getServer", (PyCFunction)TriggerDummy_getServer, METH_NOARGS, "Returns server object."},
     {"_getStream", (PyCFunction)TriggerDummy_getStream, METH_NOARGS, "Returns stream object."},
     {"play", (PyCFunction)TriggerDummy_play, METH_VARARGS|METH_KEYWORDS, "Starts computing without sending sound to soundcard."},
-    {"stop", (PyCFunction)TriggerDummy_stop, METH_NOARGS, "Stops computing."},
+    {"stop", (PyCFunction)TriggerDummy_stop, METH_VARARGS|METH_KEYWORDS, "Stops computing."},
     {"setMul", (PyCFunction)TriggerDummy_setMul, METH_O, "Sets oscillator mul factor."},
     {"setAdd", (PyCFunction)TriggerDummy_setAdd, METH_O, "Sets oscillator add factor."},
     {"setSub", (PyCFunction)TriggerDummy_setSub, METH_O, "Sets inverse add factor."},

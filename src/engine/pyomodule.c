@@ -2040,6 +2040,7 @@ init_pyo64(void)
     module_add_object(m, "RCOsc_base", &RCOscType);
     module_add_object(m, "Yin_base", &YinType);
     module_add_object(m, "SVF_base", &SVFType);
+    module_add_object(m, "SVF2_base", &SVF2Type);
     module_add_object(m, "Average_base", &AverageType);
     module_add_object(m, "CvlVerb_base", &CvlVerbType);
     module_add_object(m, "Spectrum_base", &SpectrumType);
@@ -2107,6 +2108,8 @@ init_pyo64(void)
     module_add_object(m, "MidiLinseg_base", &MidiLinsegType);
     module_add_object(m, "MultiBandMain_base", &MultiBandMainType);
     module_add_object(m, "MultiBand_base", &MultiBandType);
+    module_add_object(m, "M_Div_base", &M_DivType);
+    module_add_object(m, "M_Sub_base", &M_SubType);
 
     PyModule_AddStringConstant(m, "PYO_VERSION", PYO_VERSION);
 #ifdef COMPILE_EXTERNALS
